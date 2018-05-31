@@ -15,6 +15,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -31,6 +32,7 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
+import com.squareup.picasso.Picasso;
 
 import java.net.MalformedURLException;
 
@@ -53,6 +55,8 @@ public class StepDetailFragment extends Fragment {
     Button NextButton;
     TextView DetailInstructions;
     LinearLayout VideoFrameLayout;
+    public String VIDEO_POSITION;
+    ImageView RecipeImage;
 
     public StepDetailFragment(){
     }
@@ -73,12 +77,14 @@ public class StepDetailFragment extends Fragment {
 
         PlayerView = rootView.findViewById(R.id.BakingVideoView);
         VideoFrameLayout = rootView.findViewById(R.id.VideoFrameLayout);
+        RecipeImage = rootView.findViewById(R.id.BakingImageView);
 
 
 
         if (savedInstanceState!=null){
             CurrentRecipe = (BakingRepo) savedInstanceState.getSerializable(MainActivity.RECIPE_OBJECT);
             StepPosition = savedInstanceState.getInt(STEP_ID);
+            CurrentPosition = savedInstanceState.getLong(VIDEO_POSITION);
         }
 
         if (CurrentRecipe!=null){
@@ -87,13 +93,15 @@ public class StepDetailFragment extends Fragment {
             NextButton = rootView.findViewById(R.id.Next_Step_Button);
             DetailInstructions = rootView.findViewById(R.id.Detail_Instructions_TextView);
             DetailInstructions.setText(CurrentRecipe.getSteps().get(StepPosition).getDescription());
+            final String ImageUri = CurrentRecipe.getSteps().get(StepPosition).getThumbnailURL();
+
 
             NextButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     StepPosition = StepPosition + 1;
                     DetailInstructions.setText(CurrentRecipe.getSteps().get(StepPosition).getDescription());
-                    changePlayerResource(CurrentRecipe.getSteps().get(StepPosition).getVideoURL());
+                    changePlayerResource(CurrentRecipe.getSteps().get(StepPosition).getVideoURL(), ImageUri);
                 }
             });
 
@@ -102,7 +110,7 @@ public class StepDetailFragment extends Fragment {
                 public void onClick(View v) {
                     StepPosition = StepPosition - 1;
                     DetailInstructions.setText(CurrentRecipe.getSteps().get(StepPosition).getDescription());
-                    changePlayerResource(CurrentRecipe.getSteps().get(StepPosition).getVideoURL());
+                    changePlayerResource(CurrentRecipe.getSteps().get(StepPosition).getVideoURL(), ImageUri);
                 }
             });
             ((AppCompatActivity)getActivity()).getSupportActionBar().setTitle(CurrentRecipe.getName());
@@ -115,14 +123,20 @@ public class StepDetailFragment extends Fragment {
         }
         return rootView;
     }
-    private void initializePlayer(String VideoUri){
+    private void initializePlayer(String VideoUri, String ImageUri){
         if (VideoUri.isEmpty()){
-            VideoFrameLayout.setVisibility(View.GONE);
-            DetailInstructions.setTextSize(20);
+            PlayerView.setVisibility(View.GONE);
+            RecipeImage.setVisibility(View.VISIBLE);
+            if (ImageUri.isEmpty()) ImageUri = "error Uri";
+            Picasso.with(getContext())
+                    .load(ImageUri)
+                    .placeholder(R.drawable.cupcake)
+                    .error(R.drawable.cupcake)
+                    .into(RecipeImage);
         } else {
 
-            VideoFrameLayout.setVisibility(View.VISIBLE);
-            DetailInstructions.setTextSize(15);
+            PlayerView.setVisibility(View.VISIBLE);
+            RecipeImage.setVisibility(View.GONE);
         }
 
             if (player == null) {
@@ -143,7 +157,33 @@ public class StepDetailFragment extends Fragment {
                 Log.d("Tag", "MalformedURL");
             }
     }
-
+    public void changePlayerResource(String VideoUri, String ImageUri){
+        if (VideoUri.isEmpty()){
+            PlayerView.setVisibility(View.GONE);
+            RecipeImage.setVisibility(View.VISIBLE);
+            if (ImageUri.isEmpty()) ImageUri = "error Uri";
+            Picasso.with(getContext())
+                    .load(ImageUri)
+                    .placeholder(R.drawable.cupcake)
+                    .error(R.drawable.cupcake)
+                    .into(RecipeImage);
+        } else {
+            PlayerView.setVisibility(View.VISIBLE);
+            RecipeImage.setVisibility(View.GONE);
+            Uri uri = Uri.parse(VideoUri);
+            MediaSource mediaSource = null;
+            try {
+                mediaSource = buildMediaSource(uri);
+                player.prepare(mediaSource, false, false);
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+        }
+        if (StepPosition==0) PrevoiusButton.setVisibility(View.INVISIBLE);
+        else  PrevoiusButton.setVisibility(View.VISIBLE);
+        if (StepPosition==CurrentRecipe.getSteps().size()-1) NextButton.setVisibility(View.INVISIBLE);
+        else NextButton.setVisibility(View.VISIBLE);
+    }
     private MediaSource buildMediaSource(Uri uri) throws MalformedURLException {
         return new ExtractorMediaSource.Factory(
                 new DefaultHttpDataSourceFactory("m")).
@@ -182,7 +222,8 @@ public class StepDetailFragment extends Fragment {
         super.onStart();
         if (Util.SDK_INT > 23) {
             String VideoUri = CurrentRecipe.getSteps().get(StepPosition).getVideoURL();
-            initializePlayer(VideoUri);
+            String ImageUri = CurrentRecipe.getSteps().get(StepPosition).getThumbnailURL();
+            initializePlayer(VideoUri, ImageUri);
         }
     }
 
@@ -191,27 +232,12 @@ public class StepDetailFragment extends Fragment {
         super.onResume();
         if ((Util.SDK_INT <= 23 || player == null)) {
             String VideoUri = CurrentRecipe.getSteps().get(StepPosition).getVideoURL();
-            initializePlayer(VideoUri);
+            String ImageUri = CurrentRecipe.getSteps().get(StepPosition).getThumbnailURL();
+            initializePlayer(VideoUri, ImageUri);
         }
     }
 
-    public void changePlayerResource(String VideoUri){
-        if (VideoUri.isEmpty()){
-            VideoFrameLayout.setVisibility(View.GONE);
-            DetailInstructions.setTextSize(20);
-        } else {
-            DetailInstructions.setTextSize(15);
-            VideoFrameLayout.setVisibility(View.VISIBLE);
-            Uri uri = Uri.parse(VideoUri);
-            MediaSource mediaSource = null;
-            try {
-                mediaSource = buildMediaSource(uri);
-                player.prepare(mediaSource, false, false);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+
 
     public void hideButtons (Context context) {
         DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
@@ -247,5 +273,6 @@ public class StepDetailFragment extends Fragment {
         super.onSaveInstanceState(bundle);
         bundle.putSerializable(MainActivity.RECIPE_OBJECT, CurrentRecipe);
         bundle.putInt(STEP_ID, StepPosition);
+        bundle.putLong(VIDEO_POSITION, CurrentPosition);
     }
 }
