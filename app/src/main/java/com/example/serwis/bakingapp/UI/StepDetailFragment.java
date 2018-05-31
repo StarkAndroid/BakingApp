@@ -57,6 +57,8 @@ public class StepDetailFragment extends Fragment {
     LinearLayout VideoFrameLayout;
     public String VIDEO_POSITION;
     ImageView RecipeImage;
+    Boolean playState;
+    String playerState = "player state";
 
     public StepDetailFragment(){
     }
@@ -85,7 +87,8 @@ public class StepDetailFragment extends Fragment {
             CurrentRecipe = (BakingRepo) savedInstanceState.getSerializable(MainActivity.RECIPE_OBJECT);
             StepPosition = savedInstanceState.getInt(STEP_ID);
             CurrentPosition = savedInstanceState.getLong(VIDEO_POSITION);
-        }
+            playState = savedInstanceState.getBoolean(playerState);
+        } else playState = false;
 
         if (CurrentRecipe!=null){
 
@@ -145,7 +148,7 @@ public class StepDetailFragment extends Fragment {
 
                 PlayerView.setPlayer(player);
 
-                player.setPlayWhenReady(false);
+                player.setPlayWhenReady(playState);
                 player.seekTo(CurrentWindowIndex, CurrentPosition);
             }
 
@@ -194,6 +197,7 @@ public class StepDetailFragment extends Fragment {
         if (player!=null){
             CurrentPosition = player.getCurrentPosition();
             CurrentWindowIndex = player.getCurrentWindowIndex();
+            playState = player.getPlayWhenReady();
             player.release();
             player = null;
         }
@@ -274,5 +278,6 @@ public class StepDetailFragment extends Fragment {
         bundle.putSerializable(MainActivity.RECIPE_OBJECT, CurrentRecipe);
         bundle.putInt(STEP_ID, StepPosition);
         bundle.putLong(VIDEO_POSITION, CurrentPosition);
+        bundle.putBoolean(playerState, playState);
     }
 }
